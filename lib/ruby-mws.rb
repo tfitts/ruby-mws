@@ -55,6 +55,7 @@ require 'ruby-mws/api/binary_parser'
 
 require 'ruby-mws/api/base'
 require 'ruby-mws/api/inventory'
+require 'ruby-mws/api/feed'
 require 'ruby-mws/api/order'
 require 'ruby-mws/api/report'
 require 'ruby-mws/api/query'

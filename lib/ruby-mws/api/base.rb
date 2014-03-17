@@ -32,8 +32,56 @@ module MWS
         end
       end
 
+      def self.def_feed(requests, *options)
+        [requests].flatten.each do |name|
+          self.class_eval %Q{
+            @@#{name}_options = options.first
+            def #{name}(feed, params={})
+              send_feed(:#{name}, feed, params, @@#{name}_options)
+            end
+          }
+        end
+      end
+
+      def feed_valid? feed
+        xsd_path = File.join(Rails.root,'lib','amazon','xsd','amzn-envelope.xsd')
+        xsddoc = Nokogiri::XML(File.read(xsd_path), xsd_path)
+        xsd = Nokogiri::XML::Schema.from_document(xsddoc)
+        instance = Nokogiri::XML(feed)
+        valid = true
+        xsd.validate(instance).each do |error|
+          valid = false
+          puts "XML Validation Error: #{error}"
+        end
+        valid
+      end
+
+      def send_feed(name, feed, params, options={})
+        # prepare all required params...
+
+        body = feed.to_xml unless feed.class == String
+
+        return unless feed_valid? body
+
+        params = [default_params('submit_feed'), params, options, @connection.to_hash].inject :merge
+
+        params[:lists] ||= {}
+        params[:lists][:marketplace_id] = "MarketplaceId.Id"
+
+        query = Query.new params
+
+        resp = self.class.send(params[:verb], query.request_uri, :body => body, :headers => {"Content-MD5" => Base64.encode64(Digest::MD5.digest(body))})
+
+        @response = Response.parse resp, 'submit_feed', params
+
+        feed.set_request_id @response.feed_submission_info.feed_submission_id if feed.respond_to?(:request)
+
+        @response
+      end
+
       def send_request(name, params, options={})
         # prepare all required params...
+
         params = [default_params(name), params, options, @connection.to_hash].inject :merge
 
         params[:lists] ||= {}

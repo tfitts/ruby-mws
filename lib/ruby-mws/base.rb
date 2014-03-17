@@ -12,6 +12,10 @@ module MWS
       @orders ||= MWS::API::Order.new(@connection)
     end
 
+    def feed
+      @feed ||= MWS::API::Feed.new(@connection)
+    end
+
     def inventory
       @inventory ||= MWS::API::Inventory.new(@connection)
     end
