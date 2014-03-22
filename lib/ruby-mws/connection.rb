@@ -5,6 +5,7 @@ module MWS
     DEFAULT_HOST = "mws.amazonservices.com"
 
     def initialize(options={})
+
       attrs.each do |a|
         self.class.send(:attr_reader, a)
         instance_variable_set("@#{a}", options[a])
