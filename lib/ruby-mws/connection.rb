@@ -6,6 +6,7 @@ module MWS
 
     def initialize(options={})
 
+      options.reverse_merge!({:aws_access_key_id => CONFIG[:mws_access_key_id], :secret_access_key => CONFIG[:mws_secret_access_key],  :seller_id => CONFIG[:seller_id],  :marketplace_id => CONFIG[:marketplace_id]}) unless defined?(CONFIG).nil? || options.has_key?(:marketplace_id)
       attrs.each do |a|
         self.class.send(:attr_reader, a)
         instance_variable_set("@#{a}", options[a])
