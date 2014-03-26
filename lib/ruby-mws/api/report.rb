@@ -31,12 +31,11 @@ module MWS
 
       def process report_info
 
-
         if report_info.report_type == 'FeedSummaryReport' && report_info.acknowledged == 'false'
 
           report = get_report :report_id => report_info.report_id
           unless report.nil?
-            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.xml"), report)
+            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.xml"), report.encode("utf-8", :invalid => :replace, :undef => :replace))
             request = AmazonRequest.find_by_request_id report_info.report_request_id
             return update_report_acknowledgements :report_id => report_info.report_id if request.nil?
             request.report_received report_info.report_id
@@ -52,11 +51,24 @@ module MWS
             update_report_acknowledgements :report_id => report_info.report_id
 
           end
-        elsif report_info.acknowledged == "false" && ["_GET_MERCHANT_LISTINGS_DATA_LITER_","_GET_REFERRAL_FEE_PREVIEW_REPORT_"].include?(report_info.report_type)
+        elsif report_info.acknowledged == "false" && report_info.report_type == "_GET_V2_SETTLEMENT_REPORT_DATA_XML_"
+          report = get_report :report_id => report_info.report_id
+          unless report.nil?
+            HTTParty.post("http://192.168.1.100/amazon/post.php",:body => {:report => Base64.encode64(report.to_s), :id => report_info.report_id})
+            update_report_acknowledgements :report_id => report_info.report_id
+          end
+        elsif report_info.acknowledged == "false" && ["_GET_MERCHANT_LISTINGS_DATA_LITER_",
+                                                      "_GET_REFERRAL_FEE_PREVIEW_REPORT_",
+                                                      "_GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_",
+                                                      "_GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2_",
+                                                      "_GET_ALT_FLAT_FILE_PAYMENT_SETTLEMENT_DATA_",
+                                                      "_GET_FLAT_FILE_PAYMENT_SETTLEMENT_DATA_",
+                                                      "_GET_PAYMENT_SETTLEMENT_DATA_"].include?(report_info.report_type)
           #TODO decide if we want to do anything with these reports
           report = get_report :report_id => report_info.report_id
           unless report.nil?
-            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.xml"), report.force_encoding("UTF-8"))
+            ext = report_info.report_type.include?("FLAT") ? ".tab" : ".xml"
+            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.force_encoding("UTF-8"))
             update_report_acknowledgements :report_id => report_info.report_id
           end
 
@@ -73,6 +85,7 @@ module MWS
         elsif report_info.acknowledged == "false" && report_info.report_type == "_GET_FLAT_FILE_ALL_ORDERS_DATA_BY_LAST_UPDATE_"
           update_report_acknowledgements :report_id => report_info.report_id
         elsif report_info.acknowledged == "false" && report_info.report_type == "_GET_AMAZON_FULFILLED_SHIPMENTS_DATA_"
+
           report = get_report :report_id => report_info.report_id
           unless report.nil?
             File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.tab"), report.force_encoding("UTF-8"))
@@ -81,6 +94,8 @@ module MWS
           end
 
         elsif report_info.acknowledged == "false" && report_info.report_type == "_GET_FLAT_FILE_ACTIONABLE_ORDER_DATA_"
+          return update_report_acknowledgements :report_id => report_info.report_id
+
           report = get_report :report_id => report_info.report_id
           unless report.nil?
             File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.tab"), report.force_encoding("UTF-8"))
