@@ -54,6 +54,7 @@ module MWS
         elsif report_info.acknowledged == "false" && report_info.report_type == "_GET_V2_SETTLEMENT_REPORT_DATA_XML_"
           report = get_report :report_id => report_info.report_id
           unless report.nil?
+            #TODO Make this report viewable through rails
             HTTParty.post("http://192.168.1.100/amazon/post.php",:body => {:report => Base64.encode64(report.to_s), :id => report_info.report_id})
             update_report_acknowledgements :report_id => report_info.report_id
           end
@@ -122,7 +123,10 @@ module MWS
               end
               ActiveRecord::Base.connection.execute("INSERT INTO amazon_open_listings (amazon_request_id, sku, asin, price, quantity) #{inserts.join(" UNION ALL ")} GO")
             end
-
+            #TODO update records
+            AmazonRequest.where{request_type == '_GET_FLAT_FILE_OPEN_LISTINGS_DATA_'}.last.records.joins("LEFT JOIN [items] on [amazon_open_listings].[sku] = [items].[sku]").where("([items].[asin] <> [amazon_open_listings].[asin] or [items].asin is null) and [items].[discontinued_at] is null and len([items].[location]) = 11").each do |listing|
+              Item.where{sku == my{listing.sku}}.update_all(:asin => listing.asin)
+            end
             update_report_acknowledgements :report_id => report_info.report_id
           end
 
