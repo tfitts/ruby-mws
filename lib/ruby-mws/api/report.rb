@@ -31,11 +31,12 @@ module MWS
 
       def process report_info
 
+        ext = report_info.report_type.include?("FLAT") ? "tab" : "xml"
         if report_info.report_type == 'FeedSummaryReport' && report_info.acknowledged == 'false'
 
           report = get_report :report_id => report_info.report_id
           unless report.nil?
-            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.xml"), report.encode("utf-8", :invalid => :replace, :undef => :replace))
+            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.encode("utf-8", :invalid => :replace, :undef => :replace))
             request = AmazonRequest.find_by_request_id report_info.report_request_id
             return update_report_acknowledgements :report_id => report_info.report_id if request.nil?
             request.report_received report_info.report_id
@@ -51,7 +52,7 @@ module MWS
             update_report_acknowledgements :report_id => report_info.report_id
 
           end
-        elsif report_info.acknowledged == "false" && report_info.report_type == "_GET_V2_SETTLEMENT_REPORT_DATA_XML_"
+        elsif report_info.acknowledged == "false" && report_info.report_type == "_GET_V2_SETTLEMENT_REPORT_DATA_#{ext}_"
           report = get_report :report_id => report_info.report_id
           unless report.nil?
             #TODO Make this report viewable through rails
@@ -64,11 +65,12 @@ module MWS
                                                       "_GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2_",
                                                       "_GET_ALT_FLAT_FILE_PAYMENT_SETTLEMENT_DATA_",
                                                       "_GET_FLAT_FILE_PAYMENT_SETTLEMENT_DATA_",
-                                                      "_GET_PAYMENT_SETTLEMENT_DATA_"].include?(report_info.report_type)
+                                                      "_GET_PAYMENT_SETTLEMENT_DATA_",
+                                                      "_GET_MERCHANT_LISTINGS_DATA_"].include?(report_info.report_type)
           #TODO decide if we want to do anything with these reports
           report = get_report :report_id => report_info.report_id
           unless report.nil?
-            ext = report_info.report_type.include?("FLAT") ? ".tab" : ".xml"
+
             File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.force_encoding("UTF-8"))
             update_report_acknowledgements :report_id => report_info.report_id
           end
@@ -76,7 +78,7 @@ module MWS
         elsif report_info.acknowledged == "false" && report_info.report_type == "_GET_AFN_INVENTORY_DATA_"
           report = get_report :report_id => report_info.report_id
           unless report.nil?
-            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.xml"), report.force_encoding("UTF-8"))
+            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.force_encoding("UTF-8"))
             listings = CSV.parse(report, {:col_sep => "\t", :headers => true})
             listings.each do |listing|
               Item.where{(sku == listing["seller-sku"]) & (quantity != my{listing["Quantity Available"]})}.update_all(:supplier_quantity => listing["Quantity Available"])
@@ -89,7 +91,7 @@ module MWS
 
           report = get_report :report_id => report_info.report_id
           unless report.nil?
-            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.tab"), report.force_encoding("UTF-8"))
+            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.force_encoding("UTF-8"))
             order = ::Order.new.from_fba report
             update_report_acknowledgements :report_id => report_info.report_id
           end
@@ -99,7 +101,7 @@ module MWS
 
           report = get_report :report_id => report_info.report_id
           unless report.nil?
-            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.tab"), report.force_encoding("UTF-8"))
+            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.force_encoding("UTF-8"))
             lines = CSV.parse(report.gsub('"',"'"), {:col_sep => "\t", :headers => true})
             ids = []
             lines.each do |line|
@@ -109,11 +111,31 @@ module MWS
             #TODO send shipment data for missing shipments.
             #update_report_acknowledgements :report_id => report_info.report_id
           end
+        elsif report_info.acknowledged == "false" && report_info.report_type == "_GET_ORDERS_DATA_"
+          report = get_report :report_id => report_info.report_id
+          unless report.nil?
+
+            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.force_encoding("UTF-8"))
+            request = AmazonRequest.find_by_request_id(report_info.report_request_id) || AmazonRequest.create(:request_id => report_info.report_request_id, :report_id => report_info.report_id, :request_type => report_info.report_type, :script => "MWS::Reports#process")
+            orders = []
+            order_list = Amazon::Envelope.parse report.to_s
+            order_list.messages.each do |message|
+
+              order = ::Order.new.from_amazon message.order_report
+              orders << order unless order.nil?
+
+            end
+
+            mws = MWS.new
+            mws.feed.acknowledgement Amazon::Feed::OrderAcknowledgement.new orders
+            update_report_acknowledgements :report_id => report_info.report_id if order_list.messages.size == orders.size
+
+          end
 
         elsif report_info.acknowledged == "false" && report_info.report_type == "_GET_FLAT_FILE_OPEN_LISTINGS_DATA_"
           report = get_report :report_id => report_info.report_id
           unless report.nil?
-            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.tab"), report.force_encoding("UTF-8"))
+            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.force_encoding("UTF-8"))
             request = AmazonRequest.find_by_request_id(report_info.report_request_id) || AmazonRequest.create(:request_id => report_info.report_request_id, :report_id => report_info.report_id, :request_type => report_info.report_type, :script => "MWS::Reports#process")
             lines = CSV.parse(report, {:col_sep => "\t", :headers => true})
             lines.each_slice(200) do |batch|

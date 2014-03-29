@@ -81,7 +81,7 @@ module MWS
 
       def send_request(name, params, options={})
         # prepare all required params...
-
+        params[:acknowledged] = false if name == :get_report_list && !params.has_key?(:acknowledged)
         params = [default_params(name), params, options, @connection.to_hash].inject :merge
 
         params[:lists] ||= {}
