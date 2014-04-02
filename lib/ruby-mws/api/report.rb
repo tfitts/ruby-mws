@@ -52,7 +52,7 @@ module MWS
             update_report_acknowledgements :report_id => report_info.report_id
 
           end
-        elsif report_info.acknowledged == "false" && report_info.report_type == "_GET_V2_SETTLEMENT_REPORT_DATA_#{ext}_"
+        elsif report_info.acknowledged == "false" && report_info.report_type == "_GET_V2_SETTLEMENT_REPORT_DATA_XML_"
           report = get_report :report_id => report_info.report_id
           unless report.nil?
             #TODO Make this report viewable through rails
