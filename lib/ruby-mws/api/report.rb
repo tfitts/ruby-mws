@@ -47,6 +47,8 @@ module MWS
             results = result_info.messages.first.processing_report.results
             request.complete_success if summary.processed == summary.successful && summary.error == 0 && summary.warning == 0
 
+            return if summary.processed == 0
+
             request.process_results results
 
             update_report_acknowledgements :report_id => report_info.report_id
@@ -91,8 +93,8 @@ module MWS
 
           report = get_report :report_id => report_info.report_id
           unless report.nil?
-            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.force_encoding("UTF-8"))
-            order = ::Order.new.from_fba report
+            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.encode("utf-8", :invalid => :replace, :undef => :replace))
+            order = ::Order.new.from_fba report.encode("utf-8", :invalid => :replace, :undef => :replace)
             update_report_acknowledgements :report_id => report_info.report_id
           end
 
