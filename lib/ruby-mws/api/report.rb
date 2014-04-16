@@ -99,9 +99,8 @@ module MWS
           end
 
         elsif report_info.acknowledged == "false" && report_info.report_type == "_GET_FLAT_FILE_ACTIONABLE_ORDER_DATA_"
-          return update_report_acknowledgements :report_id => report_info.report_id
 
-
+          report = get_report :report_id => report_info.report_id
           unless report.nil?
             File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.encode("utf-8", :invalid => :replace, :undef => :replace))
             update_report_acknowledgements :report_id => report_info.report_id
