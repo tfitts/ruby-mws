@@ -33,13 +33,13 @@ module MWS
 
         return if report_info.acknowledged == 'true' && retry_acknowledged == false
 
-        if File.file?(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}")
-          report = File.read(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}")
+        ext = report_info.report_type.include?("FLAT") ? "tab" : "xml"
+        if File.file?(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"))
+          report = File.read(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"))
         else
           report = get_report :report_id => report_info.report_id
         end
 
-        ext = report_info.report_type.include?("FLAT") ? "tab" : "xml"
         if report_info.report_type == 'FeedSummaryReport'
 
           unless report.nil?
