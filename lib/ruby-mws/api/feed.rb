@@ -43,7 +43,7 @@ module MWS
                :verb => :post,
                :uri => '/',
                :version => '2009-01-01',
-               :feed_type => '_POST_PRODUCT_OVERRIDES_DATA_'
+               :feed_type => '_POST_ORDER_FULFILLMENT_DATA_'
 
       def_feed [:acknowledgement],
                :verb => :post,

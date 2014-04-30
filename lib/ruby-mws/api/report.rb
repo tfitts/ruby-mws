@@ -38,12 +38,13 @@ module MWS
           report = File.read(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"))
         else
           report = get_report :report_id => report_info.report_id
+          File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.encode("UTF-8", :invalid => :replace, :undef => :replace)) unless report.nil?
         end
 
         if report_info.report_type == 'FeedSummaryReport'
 
           unless report.nil?
-            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.encode("UTF-8", :invalid => :replace, :undef => :replace))
+
             request = AmazonRequest.find_by_request_id report_info.report_request_id
             return update_report_acknowledgements :report_id => report_info.report_id if request.nil?
             request.report_received report_info.report_id
@@ -53,6 +54,8 @@ module MWS
             summary = result_info.messages.first.processing_report.summary
             results = result_info.messages.first.processing_report.results
             request.complete_success if summary.processed == summary.successful && summary.error == 0 && summary.warning == 0
+
+            return if summary.processed == 0
 
             request.process_results results
 
@@ -79,14 +82,13 @@ module MWS
           
           unless report.nil?
 
-            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.encode("UTF-8", :invalid => :replace, :undef => :replace))
             update_report_acknowledgements :report_id => report_info.report_id
           end
 
         elsif report_info.report_type == "_GET_AFN_INVENTORY_DATA_"
           
           unless report.nil?
-            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.encode("UTF-8", :invalid => :replace, :undef => :replace))
+
             listings = CSV.parse(report, {:col_sep => "\t", :headers => true})
             listings.each do |listing|
               Item.where{(sku == listing["seller-sku"]) & (quantity != my{listing["Quantity Available"]})}.update_all(:supplier_quantity => listing["Quantity Available"])
@@ -99,17 +101,17 @@ module MWS
 
           
           unless report.nil?
-            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.encode("UTF-8", :invalid => :replace, :undef => :replace))
-            order = ::Order.new.from_fba report
+
+            order = ::Order.new.from_fba report.encode("utf-8", :invalid => :replace, :undef => :replace)
             update_report_acknowledgements :report_id => report_info.report_id
           end
 
         elsif report_info.report_type == "_GET_FLAT_FILE_ACTIONABLE_ORDER_DATA_"
-          return update_report_acknowledgements :report_id => report_info.report_id
 
           
           unless report.nil?
-            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.encode("UTF-8", :invalid => :replace, :undef => :replace))
+
+            update_report_acknowledgements :report_id => report_info.report_id
             lines = CSV.parse(report.gsub('"',"'"), {:col_sep => "\t", :headers => true})
             ids = []
             lines.each do |line|
@@ -123,7 +125,7 @@ module MWS
           
           unless report.nil?
 
-            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.encode("UTF-8", :invalid => :replace, :undef => :replace))
+
             request = AmazonRequest.find_by_request_id(report_info.report_request_id) || AmazonRequest.create(:request_id => report_info.report_request_id, :report_id => report_info.report_id, :request_type => report_info.report_type, :script => "MWS::Reports#process")
             orders = []
             order_list = Amazon::Envelope.parse report.to_s
@@ -143,7 +145,7 @@ module MWS
         elsif report_info.report_type == "_GET_FLAT_FILE_OPEN_LISTINGS_DATA_"
           
           unless report.nil?
-            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.encode("UTF-8", :invalid => :replace, :undef => :replace))
+
             request = AmazonRequest.find_by_request_id(report_info.report_request_id) || AmazonRequest.create(:request_id => report_info.report_request_id, :report_id => report_info.report_id, :request_type => report_info.report_type, :script => "MWS::Reports#process")
             lines = CSV.parse(report, {:col_sep => "\t", :headers => true})
             lines.each_slice(200) do |batch|
