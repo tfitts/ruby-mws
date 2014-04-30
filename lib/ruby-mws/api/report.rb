@@ -29,14 +29,21 @@ module MWS
                   }
 
 
-      def process report_info
+      def process report_info, retry_acknowledged = false
+
+        return if report_info.acknowledged == 'true' && retry_acknowledged == false
+
+        if File.file?(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}")
+          report = File.read(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}")
+        else
+          report = get_report :report_id => report_info.report_id
+        end
 
         ext = report_info.report_type.include?("FLAT") ? "tab" : "xml"
-        if report_info.report_type == 'FeedSummaryReport' && report_info.acknowledged == 'false'
+        if report_info.report_type == 'FeedSummaryReport'
 
-          report = get_report :report_id => report_info.report_id
           unless report.nil?
-            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.encode("utf-8", :invalid => :replace, :undef => :replace))
+            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.encode("UTF-8", :invalid => :replace, :undef => :replace))
             request = AmazonRequest.find_by_request_id report_info.report_request_id
             return update_report_acknowledgements :report_id => report_info.report_id if request.nil?
             request.report_received report_info.report_id
@@ -52,56 +59,57 @@ module MWS
             update_report_acknowledgements :report_id => report_info.report_id
 
           end
-        elsif report_info.acknowledged == "false" && report_info.report_type == "_GET_V2_SETTLEMENT_REPORT_DATA_XML_"
-          report = get_report :report_id => report_info.report_id
+        elsif report_info.report_type == "_GET_V2_SETTLEMENT_REPORT_DATA_XML_"
+          
           unless report.nil?
             #TODO Make this report viewable through rails
             HTTParty.post("http://192.168.1.100/amazon/post.php",:body => {:report => Base64.encode64(report.to_s), :id => report_info.report_id})
             update_report_acknowledgements :report_id => report_info.report_id
           end
-        elsif report_info.acknowledged == "false" && ["_GET_MERCHANT_LISTINGS_DATA_LITER_",
+        elsif ["_GET_MERCHANT_LISTINGS_DATA_LITER_",
                                                       "_GET_REFERRAL_FEE_PREVIEW_REPORT_",
                                                       "_GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_",
                                                       "_GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2_",
                                                       "_GET_ALT_FLAT_FILE_PAYMENT_SETTLEMENT_DATA_",
                                                       "_GET_FLAT_FILE_PAYMENT_SETTLEMENT_DATA_",
                                                       "_GET_PAYMENT_SETTLEMENT_DATA_",
-                                                      "_GET_MERCHANT_LISTINGS_DATA_"].include?(report_info.report_type)
+                                                      "_GET_MERCHANT_LISTINGS_DATA_",
+                                                      "_GET_SELLER_FEEDBACK_DATA_"].include?(report_info.report_type)
           #TODO decide if we want to do anything with these reports
-          report = get_report :report_id => report_info.report_id
+          
           unless report.nil?
 
-            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.force_encoding("UTF-8"))
+            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.encode("UTF-8", :invalid => :replace, :undef => :replace))
             update_report_acknowledgements :report_id => report_info.report_id
           end
 
-        elsif report_info.acknowledged == "false" && report_info.report_type == "_GET_AFN_INVENTORY_DATA_"
-          report = get_report :report_id => report_info.report_id
+        elsif report_info.report_type == "_GET_AFN_INVENTORY_DATA_"
+          
           unless report.nil?
-            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.force_encoding("UTF-8"))
+            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.encode("UTF-8", :invalid => :replace, :undef => :replace))
             listings = CSV.parse(report, {:col_sep => "\t", :headers => true})
             listings.each do |listing|
               Item.where{(sku == listing["seller-sku"]) & (quantity != my{listing["Quantity Available"]})}.update_all(:supplier_quantity => listing["Quantity Available"])
             end
             update_report_acknowledgements :report_id => report_info.report_id
           end
-        elsif report_info.acknowledged == "false" && report_info.report_type == "_GET_FLAT_FILE_ALL_ORDERS_DATA_BY_LAST_UPDATE_"
+        elsif report_info.report_type == "_GET_FLAT_FILE_ALL_ORDERS_DATA_BY_LAST_UPDATE_"
           update_report_acknowledgements :report_id => report_info.report_id
-        elsif report_info.acknowledged == "false" && report_info.report_type == "_GET_AMAZON_FULFILLED_SHIPMENTS_DATA_"
+        elsif report_info.report_type == "_GET_AMAZON_FULFILLED_SHIPMENTS_DATA_"
 
-          report = get_report :report_id => report_info.report_id
+          
           unless report.nil?
-            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.force_encoding("UTF-8"))
+            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.encode("UTF-8", :invalid => :replace, :undef => :replace))
             order = ::Order.new.from_fba report
             update_report_acknowledgements :report_id => report_info.report_id
           end
 
-        elsif report_info.acknowledged == "false" && report_info.report_type == "_GET_FLAT_FILE_ACTIONABLE_ORDER_DATA_"
+        elsif report_info.report_type == "_GET_FLAT_FILE_ACTIONABLE_ORDER_DATA_"
           return update_report_acknowledgements :report_id => report_info.report_id
 
-          report = get_report :report_id => report_info.report_id
+          
           unless report.nil?
-            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.force_encoding("UTF-8"))
+            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.encode("UTF-8", :invalid => :replace, :undef => :replace))
             lines = CSV.parse(report.gsub('"',"'"), {:col_sep => "\t", :headers => true})
             ids = []
             lines.each do |line|
@@ -111,11 +119,11 @@ module MWS
             #TODO send shipment data for missing shipments.
             #update_report_acknowledgements :report_id => report_info.report_id
           end
-        elsif report_info.acknowledged == "false" && report_info.report_type == "_GET_ORDERS_DATA_"
-          report = get_report :report_id => report_info.report_id
+        elsif report_info.report_type == "_GET_ORDERS_DATA_"
+          
           unless report.nil?
 
-            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.force_encoding("UTF-8"))
+            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.encode("UTF-8", :invalid => :replace, :undef => :replace))
             request = AmazonRequest.find_by_request_id(report_info.report_request_id) || AmazonRequest.create(:request_id => report_info.report_request_id, :report_id => report_info.report_id, :request_type => report_info.report_type, :script => "MWS::Reports#process")
             orders = []
             order_list = Amazon::Envelope.parse report.to_s
@@ -132,10 +140,10 @@ module MWS
 
           end
 
-        elsif report_info.acknowledged == "false" && report_info.report_type == "_GET_FLAT_FILE_OPEN_LISTINGS_DATA_"
-          report = get_report :report_id => report_info.report_id
+        elsif report_info.report_type == "_GET_FLAT_FILE_OPEN_LISTINGS_DATA_"
+          
           unless report.nil?
-            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.force_encoding("UTF-8"))
+            File.write(Rails.root.join('mws','reports',report_info.report_type,"#{report_info.report_id}.#{ext}"), report.encode("UTF-8", :invalid => :replace, :undef => :replace))
             request = AmazonRequest.find_by_request_id(report_info.report_request_id) || AmazonRequest.create(:request_id => report_info.report_request_id, :report_id => report_info.report_id, :request_type => report_info.report_type, :script => "MWS::Reports#process")
             lines = CSV.parse(report, {:col_sep => "\t", :headers => true})
             lines.each_slice(200) do |batch|
@@ -149,6 +157,9 @@ module MWS
             AmazonRequest.where{request_type == '_GET_FLAT_FILE_OPEN_LISTINGS_DATA_'}.last.records.joins("LEFT JOIN [items] on [amazon_open_listings].[sku] = [items].[sku]").where("([items].[asin] <> [amazon_open_listings].[asin] or [items].asin is null) and [items].[discontinued_at] is null and len([items].[location]) = 11").each do |listing|
               Item.where{sku == my{listing.sku}}.update_all(:asin => listing.asin)
             end
+            ActiveRecord::Base.connection.execute("insert into [amazon_listings] (amazon_sku, asin, item_id) select aol.sku, aol.asin, i.id from amazon_open_listings aol left join amazon_listings al on aol.sku = al.amazon_sku and aol.asin = al.asin left join items i on aol.sku = i.sku where amazon_request_id = #{request.id} and al.id is null and i.id is not null")
+            ActiveRecord::Base.connection.execute("update amazon_listings set active = 1 where active = 0 and amazon_sku in (select sku from amazon_open_listings where amazon_request_id = #{request.id})")
+            ActiveRecord::Base.connection.execute("update amazon_listings set delete_listing = 1 where delete_listing = 0 and id in (select al2.id From amazon_listings al left join amazon_listings al2 on al.asin = al2.asin and al2.amazon_sku like 'b00%' where al.id <> al2.id and al.amazon_sku not like 'b00%' and al2.active = 1)")
             update_report_acknowledgements :report_id => report_info.report_id
           end
 
