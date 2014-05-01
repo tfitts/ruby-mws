@@ -80,6 +80,7 @@ module MWS
       end
 
       def send_request(name, params, options={})
+
         # prepare all required params...
         params[:acknowledged] = false if name == :get_report_list && !params.has_key?(:acknowledged)
         params = [default_params(name), params, options, @connection.to_hash].inject :merge
@@ -88,7 +89,24 @@ module MWS
         params[:lists][:marketplace_id] = "MarketplaceId.Id"
 
         query = Query.new params
-        resp = self.class.send(params[:verb], query.request_uri)
+
+        if params[:report_id].present?
+          if File.file?(Rails.root.join('mws','reports','ids',params[:report_id]))
+            resp = File.read(Rails.root.join('mws','reports','ids',params[:report_id]))
+            report_source = 'file'
+
+          else
+
+            resp = self.class.send(params[:verb], query.request_uri)
+            File.write(Rails.root.join('mws','reports','ids',params[:report_id]), resp.body) unless resp.nil? || resp["ErrorResponse"].present?
+            resp = resp.body if resp["AmazonEnvelope"].present?
+            report_source = 'url'
+          end
+        else
+          resp = self.class.send(params[:verb], query.request_uri)
+        end
+
+
 
         @response = Response.parse resp, name, params
 
