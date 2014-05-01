@@ -98,7 +98,7 @@ module MWS
           else
 
             resp = self.class.send(params[:verb], query.request_uri)
-            File.write(Rails.root.join('mws','reports','ids',params[:report_id]), resp.body) unless resp.nil? || resp["ErrorResponse"].present?
+            File.write(Rails.root.join('mws','reports','ids',params[:report_id]), resp.body.encode("UTF-8", :invalid => :replace, :undef => :replace)) unless resp.nil? || resp["ErrorResponse"].present?
             resp = resp.body if resp["AmazonEnvelope"].present?
             report_source = 'url'
           end
