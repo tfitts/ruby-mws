@@ -92,6 +92,10 @@ module MWS
 
         @response = Response.parse resp, name, params
 
+        request_info = @response['report_request_info']
+
+        AmazonRequest.create(:request_type => request_info['report_type'], :request_id => request_info['report_request_id'], :script => 'MWS::Reports#send_request') unless request_info.nil?
+
         if @response.respond_to?(:next_token) and @next[:token] = @response.next_token  # modifying, not comparing
           @next[:action] = name.match(/_by_next_token/) ? name : "#{name}_by_next_token"
         end
