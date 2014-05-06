@@ -91,7 +91,7 @@ module MWS
 
             listings = CSV.parse(report, {:col_sep => "\t", :headers => true})
             listings.each do |listing|
-              Item.where{(sku == listing["seller-sku"]) & (quantity != my{listing["Quantity Available"]})}.update_all(:supplier_quantity => listing["Quantity Available"])
+              Item.where("[items].[sku] = ?",listing["seller-sku"]).where.not(:quantity => listing["Quantity Available"]).update_all(:supplier_quantity => listing["Quantity Available"])
             end
             update_report_acknowledgements :report_id => report_info.report_id
           end
@@ -117,7 +117,7 @@ module MWS
             lines.each do |line|
               ids << line["order-id"]
             end
-            Order.where{market_id.in(ids.uniq)}.joins(:shipment).where("[shipments].[order_status] = ?",'Shipped')
+            Order.where(:market_id => ids.uniq).joins(:shipment).where("[shipments].[order_status] = ?",'Shipped')
             #TODO send shipment data for missing shipments.
             #update_report_acknowledgements :report_id => report_info.report_id
           end
@@ -156,8 +156,8 @@ module MWS
               ActiveRecord::Base.connection.execute("INSERT INTO amazon_open_listings (amazon_request_id, sku, asin, price, quantity) #{inserts.join(" UNION ALL ")} GO")
             end
             #TODO update records
-            AmazonRequest.where{request_type == '_GET_FLAT_FILE_OPEN_LISTINGS_DATA_'}.last.records.joins("LEFT JOIN [items] on [amazon_open_listings].[sku] = [items].[sku]").where("([items].[asin] <> [amazon_open_listings].[asin] or [items].asin is null) and [items].[discontinued_at] is null and len([items].[location]) = 11").each do |listing|
-              Item.where{sku == my{listing.sku}}.update_all(:asin => listing.asin)
+            AmazonRequest.open_listings.records.joins("LEFT JOIN [items] on [amazon_open_listings].[sku] = [items].[sku]").where("([items].[asin] <> [amazon_open_listings].[asin] or [items].asin is null) and [items].[discontinued_at] is null and len([items].[location]) = 11").each do |listing|
+              Item.where(:sku => listing.sku).update_all(:asin => listing.asin)
             end
             ActiveRecord::Base.connection.execute("insert into [amazon_listings] (amazon_sku, asin, item_id) select aol.sku, aol.asin, i.id from amazon_open_listings aol left join amazon_listings al on aol.sku = al.amazon_sku and aol.asin = al.asin left join items i on aol.sku = i.sku where amazon_request_id = #{request.id} and al.id is null and i.id is not null")
             ActiveRecord::Base.connection.execute("update amazon_listings set active = 1 where active = 0 and amazon_sku in (select sku from amazon_open_listings where amazon_request_id = #{request.id})")
