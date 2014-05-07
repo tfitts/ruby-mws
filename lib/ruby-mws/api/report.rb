@@ -76,6 +76,7 @@ module MWS
                                                       "_GET_ALT_FLAT_FILE_PAYMENT_SETTLEMENT_DATA_",
                                                       "_GET_FLAT_FILE_PAYMENT_SETTLEMENT_DATA_",
                                                       "_GET_PAYMENT_SETTLEMENT_DATA_",
+                                                      "_GET_FBA_FULFILLMENT_LONGTERM_STORAGE_FEE_CHARGES_DATA_",
                                                       "_GET_MERCHANT_LISTINGS_DATA_",
                                                       "_GET_SELLER_FEEDBACK_DATA_"].include?(report_info.report_type)
           #TODO decide if we want to do anything with these reports
