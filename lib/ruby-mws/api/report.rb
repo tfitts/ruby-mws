@@ -156,14 +156,15 @@ module MWS
               end
               ActiveRecord::Base.connection.execute("INSERT INTO amazon_open_listings (amazon_request_id, sku, asin, price, quantity) #{inserts.join(" UNION ALL ")} GO")
             end
+            update_report_acknowledgements :report_id => report_info.report_id
             #TODO update records
             AmazonRequest.open_listings.records.joins("LEFT JOIN [items] on [amazon_open_listings].[sku] = [items].[sku]").where("([items].[asin] <> [amazon_open_listings].[asin] or [items].asin is null) and [items].[discontinued_at] is null and len([items].[location]) = 11").each do |listing|
               Item.where(:sku => listing.sku).update_all(:asin => listing.asin)
             end
-            ActiveRecord::Base.connection.execute("insert into [amazon_listings] (amazon_sku, asin, item_id) select aol.sku, aol.asin, i.id from amazon_open_listings aol left join amazon_listings al on aol.sku = al.amazon_sku and aol.asin = al.asin left join items i on aol.sku = i.sku where amazon_request_id = #{request.id} and al.id is null and i.id is not null")
-            ActiveRecord::Base.connection.execute("update amazon_listings set active = 1 where active = 0 and amazon_sku in (select sku from amazon_open_listings where amazon_request_id = #{request.id})")
-            ActiveRecord::Base.connection.execute("update amazon_listings set delete_listing = 1 where delete_listing = 0 and id in (select al2.id From amazon_listings al left join amazon_listings al2 on al.asin = al2.asin and al2.amazon_sku like 'b00%' where al.id <> al2.id and al.amazon_sku not like 'b00%' and al2.active = 1)")
-            update_report_acknowledgements :report_id => report_info.report_id
+            ActiveRecord::Base.connection.execute("insert into [amazon_listings] (sku, asin, item_id) select aol.sku, aol.asin, i.id from amazon_open_listings aol left join amazon_listings al on aol.sku = al.sku and aol.asin = al.asin left join items i on aol.sku = i.sku where amazon_request_id = #{request.id} and al.id is null and i.id is not null")
+            ActiveRecord::Base.connection.execute("update amazon_listings set active = 1 where active = 0 and sku in (select sku from amazon_open_listings where amazon_request_id = #{request.id})")
+            ActiveRecord::Base.connection.execute("update amazon_listings set delete_listing = 1 where delete_listing = 0 and id in (select al2.id From amazon_listings al left join amazon_listings al2 on al.asin = al2.asin and al2.sku like 'b00%' where al.id <> al2.id and al.sku not like 'b00%' and al2.active = 1)")
+
           end
 
         end
