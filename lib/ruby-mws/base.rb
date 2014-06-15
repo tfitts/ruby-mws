@@ -24,6 +24,9 @@ module MWS
       @reports ||= MWS::API::Report.new(@connection)
     end
 
+    def fulfillments
+      @fulfillments ||= MWS::API::Fulfillment.new(@connection)
+    end
 
     # serves as a server ping
     def self.server_time
