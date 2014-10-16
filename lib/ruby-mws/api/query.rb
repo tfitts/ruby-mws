@@ -10,9 +10,26 @@ module MWS
             params["#{label}.#{i+1}"] = item
           end
         end unless params[:lists].nil?
+
+        params[:nested].each do |field,label|
+          [params.delete(field)].each_with_index do |item,i|
+            item.each do |f, v|
+              params["#{label}.#{f}"] = v
+            end
+          end unless params[field].nil?
+        end unless params[:nested].nil?
+
+        params[:nested_lists].each do |field,label|
+          [params.delete(field)].first.each_with_index do |item,i|
+            item.each do |f, v|
+              params["#{label}.#{i+1}.#{f}"] = v
+            end
+          end unless params[field].nil?
+        end unless params[:nested_lists].nil?
       end
 
       def canonical
+        #"#{@params[:uri]}/#{@params[:version]}"
         [@params[:verb].to_s.upcase, @params[:host], @params[:uri], build_sorted_query].join("\n")
       end
 
@@ -22,8 +39,24 @@ module MWS
         Base64.encode64(OpenSSL::HMAC.digest(digest, key, canonical)).chomp
       end
 
+      def post_uri
+        "https://" << @params[:host] << @params[:uri] << '/' << @params[:version]
+      end
+
       def request_uri
         "https://" << @params[:host] << @params[:uri] << '?' << build_sorted_query(signature)
+      end
+
+      def request_body
+        params = @params.dup.delete_if {|k,v| exclude_from_query.include? k}
+
+        params[:signature] = signature
+        params.stringify_keys!
+
+        # hack to capitalize AWS in param names
+        # TODO: Allow for multiple marketplace ids
+        params = Hash[params.map{|k,v| [k.camelize.sub(/Aws/,'AWS'), v]}.sort]
+
       end
 
       private
@@ -63,6 +96,8 @@ module MWS
           :secret_access_key,
           :return,
           :lists,
+          :nested,
+          :nested_lists,
           :mods
         ]
       end

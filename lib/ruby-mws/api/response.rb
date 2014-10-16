@@ -7,6 +7,9 @@ module MWS
         return body unless body.is_a?(Hash)
 
         rash = self.new(body)
+
+        return rash if name == :create_inbound_shipment_plan && rash.error_response.present?
+
         handle_error_response(rash["error_response"]["error"]) unless rash["error_response"].nil?
         raise BadResponseError, "received non-matching response type #{rash.keys}" if rash["#{name}_response"].nil?
         rash = rash["#{name}_response"]

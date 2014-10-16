@@ -43,6 +43,17 @@ module MWS
         end
       end
 
+      def self.def_post(requests, *options)
+        [requests].flatten.each do |name|
+          self.class_eval %Q{
+            @@#{name}_options = options.first
+            def #{name}(params={})
+              send_post(:#{name}, params, @@#{name}_options)
+            end
+          }
+        end
+      end
+
       def feed_valid? feed
         xsd_path = File.join(Rails.root,'lib','amazon','xsd','amzn-envelope.xsd')
         xsddoc = Nokogiri::XML(File.read(xsd_path), xsd_path)
@@ -103,6 +114,46 @@ module MWS
           end
         else
           resp = self.class.send(params[:verb], query.request_uri)
+        end
+
+
+
+        @response = Response.parse resp, name, params
+
+        request_info = @response['report_request_info']
+
+        AmazonRequest.create(:request_type => request_info['report_type'], :request_id => request_info['report_request_id'], :script => 'MWS::Reports#send_request') unless request_info.nil?
+
+        if @response.respond_to?(:next_token) and @next[:token] = @response.next_token  # modifying, not comparing
+          @next[:action] = name.match(/_by_next_token/) ? name : "#{name}_by_next_token"
+        end
+        @response
+      end
+
+      def send_post(name, params, options={})
+
+        # prepare all required params...
+        params = [default_params(name), params, options, @connection.to_hash].inject :merge
+
+        params[:lists] ||= {}
+        #params[:lists][:marketplace_id] = "MarketplaceId.Id"
+
+        query = Query.new params
+
+        if params[:report_id].present?
+          if File.file?(Rails.root.join('mws','reports','ids',params[:report_id]))
+            resp = File.read(Rails.root.join('mws','reports','ids',params[:report_id]))
+            report_source = 'file'
+
+          else
+
+            resp = self.class.send(params[:verb], query.request_uri)
+            File.write(Rails.root.join('mws','reports','ids',params[:report_id]), resp.body.encode("UTF-8", :invalid => :replace, :undef => :replace)) unless resp.nil? || resp["ErrorResponse"].present?
+            resp = resp.body if resp["AmazonEnvelope"].present?
+            report_source = 'url'
+          end
+        else
+          resp = self.class.send(params[:verb], 'https://mws.amazonservices.com/FulfillmentInboundShipment/2010-10-01', :body => query.request_body, :headers => {'Content-Type' => 'application/x-www-form-urlencoded'})
         end
 
 
