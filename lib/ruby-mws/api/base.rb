@@ -96,7 +96,7 @@ module MWS
         params = [default_params(name), params, options, @connection.to_hash].inject :merge
 
         params[:lists] ||= {}
-        params[:lists][:marketplace_id] = "MarketplaceId.Id"
+        params[:lists][:marketplace_id] = "MarketplaceId.Id" unless options[:single_marketplace]
 
         query = Query.new params
 
@@ -120,7 +120,7 @@ module MWS
 
         @response = Response.parse resp, name, params
 
-        request_info = @response['report_request_info']
+        request_info = @response['report_request_info'] unless @response.is_a?(Array)
 
         AmazonRequest.create(:request_type => request_info['report_type'], :request_id => request_info['report_request_id'], :script => 'MWS::Reports#send_request') unless request_info.nil?
 

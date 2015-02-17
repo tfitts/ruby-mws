@@ -28,6 +28,10 @@ module MWS
       @fulfillments ||= MWS::API::Fulfillment.new(@connection)
     end
 
+    def products
+      @products ||= MWS::API::Products.new(@connection)
+    end
+
     # serves as a server ping
     def self.server_time
       MWS::Connection.server_time
