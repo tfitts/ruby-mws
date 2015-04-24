@@ -9,7 +9,8 @@ module MWS
                   :single_marketplace => true,
                   :lists => {
                       :asins => "IdList.Id",
-                      :upc => "IdList.Id"
+                      :upc => "IdList.Id",
+                      :ean => "IdList.Id"
                   }
 
     end

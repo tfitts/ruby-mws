@@ -28,6 +28,10 @@ module MWS
       @fulfillments ||= MWS::API::Fulfillment.new(@connection)
     end
 
+    def outbound_fulfillments
+      @outbound_fulfillments ||= MWS::API::OutboundFulfillment.new(@connection)
+    end
+
     def products
       @products ||= MWS::API::Products.new(@connection)
     end
